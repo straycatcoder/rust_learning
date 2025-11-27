@@ -76,7 +76,7 @@ fn display_weather_info(weather_info: &WeatherResponse) {
 
 fn main() {
     println!("{}", "Welcome to the Weather CLI!".blue().bold());
-    let api_key ="d8d31293bee740761c9ba933823c09ea";
+    let api_key ="33140f2a8f0076d2cf78c6c2b2cbd08b";
     loop {
         println!("{}", "Enter city name (or type 'exit' to quit):".blue());
         let mut city = String::new();
