@@ -5,10 +5,18 @@ use colored::*;
 //Struct to desieralize the JSON response from openWeatherMap API
 #[derive(Deserialize, Debug)]
 struct WeatherResponse {
+    coord: Coord,
     weather: Vec<Weather>,
     main: Main,
     wind: Wind,
     name: String,
+}
+
+//Struct to desieralize the coordinates part of the JSON response
+#[derive(Deserialize, Debug)]
+struct Coord {
+    lon: f64,
+    lat: f64,
 }
 
 //Struct to desieralize the weather part of the JSON response
@@ -47,6 +55,7 @@ fn get_weather_info(city: &str, country_code: &str, api_key: &str) -> Result<Wea
         city, country_code, api_key
     );
     
+    println!("{} {}", "Fetching weather data from:".blue(), url.blue().underline());
     /* Rust allows you to access any public item using its full path: crate_name::module::item
     You can also bring items into scope with the use keyword to avoid repeating the full path.
     use reqwest::blocking; 
@@ -72,6 +81,7 @@ fn display_weather_info(weather_info: &WeatherResponse) {
     println!("Humidity: {} %", format!("{:.0}", weather_info.main.humidity).cyan());
     println!("Pressure: {} hPa", format!("{:.0}", weather_info.main.pressure).cyan());
     println!("Wind Speed: {} m/s", format!("{:.1}", weather_info.wind.speed).cyan());
+    println!("Coordinates: Latitude: {}, Longitude: {}", weather_info.coord.lat, weather_info.coord.lon);
 }
 
 fn main() {
