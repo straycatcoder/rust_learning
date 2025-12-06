@@ -64,6 +64,7 @@ fn get_public_ip() -> Option<IpAddr> {
 ///
 /// * `Some(String)` - The type of the active network interface ("Ethernet" or "Wi-Fi")
 /// * `None` - If no active network interface is found or the command fails
+#[cfg(target_os = "macos")]
 fn get_network_type() -> Option<String> {
     let output = Command::new("networksetup")
         .arg("-listallhardwareports")
@@ -110,6 +111,42 @@ fn get_network_type() -> Option<String> {
     None
 }
 
+#[cfg(target_os = "linux")]
+fn get_network_type() -> Option<String> {
+    let local_ip = get_local_ip()?;
+    let local_ip_str = local_ip.to_string();
+
+    // Use `ip -o addr` to find the interface associated with the local IP
+    let output = Command::new("ip")
+        .args(&["-o", "addr"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    
+    for line in output_str.lines() {
+        // Line format example: "2: wlp2s0    inet 192.168.1.105/24 ..."
+        if line.contains(&local_ip_str) {
+            let parts: Vec<&str> = line.split_whitespace().collect();
+            if parts.len() >= 2 {
+                let interface = parts[1];
+                // Check if the interface is wireless by looking for /sys/class/net/<iface>/wireless
+                let wifi_path = format!("/sys/class/net/{}/wireless", interface);
+                if std::path::Path::new(&wifi_path).exists() {
+                   return Some("Wi-Fi".to_string());
+                } else {
+                   return Some("Ethernet".to_string());
+                }
+            }
+        }
+    }
+    None
+}
+
 /// Retrieves the current Wi-Fi network name (SSID) on macOS.
 ///
 /// Uses the `system_profiler` command to query the current Wi-Fi network.
@@ -118,6 +155,7 @@ fn get_network_type() -> Option<String> {
 ///
 /// * `Some(String)` - The SSID of the current Wi-Fi network
 /// * `None` - If not connected to Wi-Fi or the command fails
+#[cfg(target_os = "macos")]
 fn get_wifi_ssid() -> Option<String> {
     let output = Command::new("system_profiler")
         .arg("SPAirPortDataType")
@@ -145,6 +183,31 @@ fn get_wifi_ssid() -> Option<String> {
             if !trimmed.is_empty() && trimmed.ends_with(':') {
                 return Some(trimmed.trim_end_matches(':').to_string());
             }
+        }
+    }
+    
+    None
+}
+
+#[cfg(target_os = "linux")]
+fn get_wifi_ssid() -> Option<String> {
+    // Use nmcli to get the active Wi-Fi SSID
+    // Command: nmcli -t -f active,ssid dev wifi
+    let output = Command::new("nmcli")
+        .args(&["-t", "-f", "active,ssid", "dev", "wifi"])
+        .output()
+        .ok()?;
+
+    if !output.status.success() {
+        return None;
+    }
+
+    let output_str = String::from_utf8_lossy(&output.stdout);
+    
+    // Look for the line starting with "yes:"
+    for line in output_str.lines() {
+        if line.starts_with("yes:") {
+            return Some(line.trim_start_matches("yes:").to_string());
         }
     }
     
